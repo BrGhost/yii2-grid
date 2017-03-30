@@ -12,6 +12,7 @@ namespace kartik\grid;
 use kartik\base\Config;
 use kartik\dialog\Dialog;
 use kartik\mpdf\Pdf;
+use nterms\pagesize\PageSize;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\bootstrap\ButtonDropdown;
@@ -19,6 +20,7 @@ use yii\grid\Column;
 use yii\grid\GridView as YiiGridView;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
+use yii\helpers\HtmlPurifier;
 use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\JsExpression;
@@ -353,7 +355,7 @@ HTML;
      */
     public $panelFooterTemplate = <<< HTML
     <div class="kv-panel-pager">
-        {pager}
+        {pager} <div class="pull-right">{pagesize}</div>
     </div>
     {footer}
     <div class="clearfix"></div>
@@ -668,7 +670,7 @@ HTML;
     /**
      * @var boolean whether to enable toggling of grid data. Defaults to `true`.
      */
-    public $toggleData = true;
+    public $toggleData = false;
 
     /**
      * @var array the settings for the toggle data button for the toggle data type. This will be setup as an
@@ -849,8 +851,12 @@ HTML;
      * @var array|boolean the HTML attributes for the grid container. The grid items will be wrapped in a `div`
      * container with the configured HTML attributes. The ID for the container will be auto generated.
      */
-    public $containerOptions = [];
+    public $containerOptions = ['class' => 'kv-grid-loading'];
 
+    /**
+     * @var bool determines whether client is allowed to customize columns
+     */
+    public $customizeColumns = true;
     /**
      * @var string the generated client script for the grid
      */
@@ -1650,6 +1656,26 @@ HTML;
      */
     protected function renderToolbar()
     {
+        if($this->customizeColumns){
+            $view = $this->getView();
+            CustomizableColumnsAsset::register($view);
+            //$btn = Html::button()
+            $content = '<div class="btn-group cc-dropdown">
+              <button type="button" class="btn btn-default dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+                <i class="fa fa-cog"></i> <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-right customize-cols-list">';
+            foreach($this->columns as $index=>$column){
+                if(isset($column->label)) {
+                    $class = $column->hidden?'fa-square-o':'fa-check-square-o';
+                    $content .= '<li><a data-grid-id="'.$this->id.'" data-index="'.($index+1).'"><i class="fa '.$class.'"></i>' . strip_tags($column->label) . '</a></li>';
+                }
+            }
+
+            $content .= '</ul></div>';
+            $this->toolbar[] = ['content'=>$content];
+        }
+
         if (empty($this->toolbar) || (!is_string($this->toolbar) && !is_array($this->toolbar))) {
             return '';
         }
@@ -1833,5 +1859,36 @@ HTML;
         $this->_gridClientFunc = 'kvGridInit_' . hash('crc32', $script);
         $this->options['data-krajee-grid'] = $this->_gridClientFunc;
         $view->registerJs("var {$this->_gridClientFunc}=function(){\n{$script}\n};\n{$this->_gridClientFunc}();");
+    }
+
+
+    public $filterSelector = 'select[name="per-page"]';
+    public $pageSizeOptions = [];
+    function renderPagesize()
+    {
+        $defaults = [
+            'template' => '<div>{list}</div>',
+            'sizes' => [10=>10,25=>25,50=>50,100=>100,200=>200],
+            'defaultPageSize' => 1
+        ];
+        $this->pageSizeOptions = array_replace_recursive($defaults, $this->pageSizeOptions);
+        return PageSize::widget([
+            'template' => $this->pageSizeOptions['template'],
+            'options' => [
+                'class' => 'form-control'
+            ],
+            'sizes' => $this->pageSizeOptions['sizes'],
+            'defaultPageSize' => $this->pageSizeOptions['defaultPageSize']
+        ]);
+    }
+
+    public function renderSection($name)
+    {
+        switch ($name) {
+            case '{pagesize}':
+                return $this->renderPagesize();
+            default:
+                return parent::renderSection($name);
+        }
     }
 }
