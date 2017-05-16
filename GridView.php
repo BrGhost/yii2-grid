@@ -1862,13 +1862,14 @@ HTML;
     }
 
 
-    public $filterSelector = 'select[name="per-page"]';
+    public $filterSelector = 'select[name="per-page"]:focus';
     public $pageSizeOptions = [];
     function renderPagesize()
     {
+        if(!$this->dataProvider->pagination) return '';
         $defaults = [
             'template' => '<div>{list}</div>',
-            'sizes' => [10=>10,25=>25,50=>50,100=>100,200=>200],
+            'sizes' => [10=>10, 25=>25, 50=>50, 100=>100, 200=>200],
             'defaultPageSize' => 1
         ];
         $this->pageSizeOptions = array_replace_recursive($defaults, $this->pageSizeOptions);
